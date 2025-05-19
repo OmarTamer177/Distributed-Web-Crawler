@@ -1,0 +1,218 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Web Crawler Search Interface</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { padding: 20px; background-color: #ffffff; color: #333333; }
+        .search-results { margin-top: 20px; }
+        .alert { margin-top: 10px; }
+        .card { background-color: #ffffff; border: 1px solid #dee2e6; }
+        .card-title { color: #333333; }
+        .list-group-item {
+            background-color: #ffffff;
+            border: 1px solid #dee2e6;
+            color: #333333;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+        .list-group-item a {
+            color: #0056b3;
+            text-decoration: none;
+        }
+        .list-group-item a:hover {
+            color: #003d82;
+            text-decoration: underline;
+        }
+        .badge {
+            background-color: #6c757d !important;
+            color: #ffffff;
+        }
+        .form-control {
+            background-color: #ffffff;
+            border: 1px solid #ced4da;
+            color: #333333;
+        }
+        .form-control:focus {
+            background-color: #ffffff;
+            border-color: #80bdff;
+            color: #333333;
+            box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+        }
+        .btn-primary {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+        .btn-primary:hover {
+            background-color: #003d82;
+            border-color: #003d82;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Web Crawler Search Interface</h1>
+        
+        <!-- Search Form -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Search</h5>
+                <form id="searchForm" class="mb-3">
+                    <div class="input-group">
+                        <input type="text" id="searchQuery" class="form-control" placeholder="Enter search query">
+                        <button type="submit" class="btn btn-primary">Search</button>
+                    </div>
+                </form>
+                <div id="searchResults"></div>
+            </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">System Status</h5>
+                <div id="statusContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p>Loading system status...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Function to update status
+        function updateStatus() {
+            fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (Object.keys(data).length === 0) {
+                        document.getElementById('statusContent').innerHTML = `
+                            <div class="alert alert-warning">
+                                <h6>System Status Unavailable</h6>
+                                <p>Please ensure that:</p>
+                                <ul>
+                                    <li>The master node is running (python master_node.py)</li>
+                                    <li>At least one crawler is running (python crawler_node.py)</li>
+                                    <li>The indexer is running (python indexer_node.py)</li>
+                                </ul>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    let html = `
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="alert alert-info">
+                                    <h6>Crawler Status</h6>
+                                    <p><strong>Active Crawlers:</strong> ${data.active_crawlers || 0}/2</p>
+                                    <p><strong>URLs Crawled:</strong> ${data.urls_crawled || 0}</p>
+                                    <p><strong>URLs in Queue:</strong> ${data.urls_in_queue || 0}</p>
+                                    <p><strong>Failed URLs:</strong> ${data.failed_urls || 0}</p>
+                                    <p><strong>Error Rate:</strong> ${((data.failed_urls || 0) / (data.urls_crawled || 1) * 100).toFixed(2)}%</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-info">
+                                    <h6>Indexer Status</h6>
+                                    <p><strong>URLs Indexed:</strong> ${data.urls_indexed || 0}</p>
+                                    <p><strong>Indexing Progress:</strong> ${((data.urls_indexed || 0) / (data.urls_crawled || 1) * 100).toFixed(2)}%</p>
+                                    <p><strong>Total Links Found:</strong> ${data.total_links_found || 0}</p>
+                                    <p><strong>Average Links/Page:</strong> ${(data.average_links_per_page || 0).toFixed(2)}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div class="alert alert-secondary">
+                                    <h6>System Overview</h6>
+                                    <p><strong>Domains Crawled:</strong> ${(data.domains_crawled || []).length}</p>
+                                    <p><strong>Filtered URLs:</strong> ${data.filtered_urls || 0}</p>
+                                    <p><strong>URLs in Progress:</strong> ${(data.urls_in_progress || []).length}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('statusContent').innerHTML = html;
+                })
+                .catch(error => {
+                    document.getElementById('statusContent').innerHTML = `
+                        <div class="alert alert-danger">
+                            <h6>Error</h6>
+                            <p>Failed to fetch system status. Please ensure the master node is running.</p>
+                        </div>
+                    `;
+                });
+        }
+
+        // Update status every 5 seconds
+        setInterval(updateStatus, 5000);
+        updateStatus();  // Initial update
+
+        // Handle search form
+        document.getElementById('searchForm').onsubmit = function(e) {
+            e.preventDefault();
+            const query = document.getElementById('searchQuery').value;
+            if (!query.trim()) {
+                document.getElementById('searchResults').innerHTML = `
+                    <div class="alert alert-warning">Please enter a search query</div>
+                `;
+                return;
+            }
+            
+            document.getElementById('searchResults').innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Searching...</span>
+                    </div>
+                </div>
+            `;
+            
+            fetch(`/search?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('searchResults').innerHTML = `
+                            <div class="alert alert-warning">${data.error}</div>
+                        `;
+                        return;
+                    }
+                    
+                    if (!Array.isArray(data) || data.length === 0) {
+                        document.getElementById('searchResults').innerHTML = `
+                            <div class="alert alert-info">No results found for "${query}"</div>
+                        `;
+                        return;
+                    }
+                    
+                    let html = '<h6 class="mt-3">Search Results:</h6><div class="list-group">';
+                    data.forEach(result => {
+                        // Handle both array format [url, score] and object format {url, score}
+                        const url = Array.isArray(result) ? result[0] : result.url;
+                        const score = Array.isArray(result) ? result[1] : result.score;
+                        
+                        html += `<div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <a href="${url}" target="_blank" class="text-break" style="word-wrap: break-word;">${url}</a>
+                                <span class="badge bg-secondary ms-2">score: ${Number(score).toFixed(9)}</span>
+                            </div>
+                        </div>`;
+                    });
+                    html += '</div>';
+                    document.getElementById('searchResults').innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Search error:', error);
+                    document.getElementById('searchResults').innerHTML = `
+                        <div class="alert alert-danger">Error performing search. Please try again.</div>
+                    `;
+                });
+        };
+    </script>
+</body>
+</html>
+    
