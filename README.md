@@ -1,10 +1,14 @@
 # Distributed-Web-Crawler
-
 ## 📌 Overview
 A fault-tolerant distributed system that:
 1. **Crawls** websites using multiple worker nodes  
 2. **Indexes** extracted content for fast searching  
 3. **Searches** crawled data through a web interface  
+
+## 🏗️ Architecture Diagram
+![Architecture Diagram](Architecture_diagram.png)
+
+The **Master Node** coordinates everything: it receives requests from the GUI, dispatches crawl tasks to the **Crawler Queue** and index tasks to the **Indexer Queue**, and routes search queries to the **Indexer**. **Crawler** and **Indexer** worker nodes pull tasks from their respective queues, send heartbeats, and push results back through the **Result Queue** to the Master Node. The Indexer persists and retrieves data from **Index_dir**.
 
 ## ⚙️ Core Technologies
 - **HTTP Requests**: Requests library
@@ -13,7 +17,6 @@ A fault-tolerant distributed system that:
 - **Web Framework**: Flask
 - **Distributed Queue**: AWS SQS
 - **Cloud VMS**: AWS EC2
-
 
 ## 🛠️ Environment Setup
 Before running the system, ensure the following requirements are installed:
@@ -61,7 +64,6 @@ Web interface for searching indexed content:
 ```bash
 python client.py
 ```
-
 Access at: 
 ```bash
 http://localhost:5002 
@@ -76,7 +78,6 @@ Reset all queues before new sessions:
 ```bash
 python clear_queues.py
 ```
-
 
 ## ⚠️ Important Notes
 - Configure your own AWS credentials properly
